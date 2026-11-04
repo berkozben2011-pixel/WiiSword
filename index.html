@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Sword Duel - 2 Player Universal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <style>
+    body, html { margin: 0; padding: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #111; user-select: none; }
+    #canvas-container { width: 100vw; height: 100vh; display: block; }
+    
+    /* UI Overlay */
+    .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+    
+    /* HUD Header */
+    .hud-header { display: flex; justify-content: space-between; padding: 20px 50px; background: linear-gradient(180deg, rgba(0,0,0,0.8), transparent); }
+    .player-hud { display: flex; flex-direction: column; width: 350px; }
+    .player-hud.blue { align-items: flex-start; color: #3b82f6; }
+    .player-hud.red { align-items: flex-end; color: #ef4444; }
+    .player-name { font-size: 24px; font-weight: bold; text-shadow: 0 0 10px rgba(0,0,0,0.8); }
+    .balance-bar-bg { width: 100%; height: 16px; background: rgba(255,255,255,0.2); border-radius: 8px; margin-top: 6px; overflow: hidden; border: 2px solid #333; }
+    .balance-bar-fill { height: 100%; width: 100%; transition: width 0.1s linear; }
+    .blue .balance-bar-fill { background: #3b82f6; }
+    .red .balance-bar-fill { background: #ef4444; }
+
+    .score-board { color: white; font-size: 32px; font-weight: 900; text-align: center; }
+
+    /* Menüler */
+    .menu-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; }
+    .menu-title { font-size: 64px; color: #f8fafc; font-weight: 900; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 4px; text-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .btn { background: #2563eb; color: white; border: none; padding: 16px 48px; margin: 10px; font-size: 20px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: all 0.2s; min-width: 260px; text-align: center; }
+    .btn:hover { background: #3b82f6; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59,130,246,0.4); }
+    
+    /* Geri Sayım & Bildirimler */
+    #announcer { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 96px; font-weight: 900; color: #fbbf24; text-shadow: 0 0 30px rgba(0,0,0,0.9); display: none; }
+    .hidden { display: none !important; }
+    .settings-grid { display:grid; grid-template-columns:repeat(2,minmax(220px,1fr)); gap:14px; max-width:900px; width:92%; }
+    .setting-card { background:#1e293b; color:#e2e8f0; padding:14px; border-radius:10px; text-align:center; }
+    .setting-card h3 { margin:4px 0 8px; }
+    .setting-card p { margin:5px; font-size:14px; }
+    .small-btn { min-width:0; padding:9px 16px; font-size:14px; }
+    #phone-qr img { margin:auto; }
+    @media(max-width:700px) { .menu-title {font-size:34px;} .settings-grid {grid-template-columns:1fr; max-height:75vh; overflow:auto;} .btn {min-width:210px;} }
+
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div class="overlay">
+    <div class="hud-header">
+      <div class="player-hud blue">
+        <div class="player-name">MAVİ SAVAŞÇI (P1)</div>
+        <div class="balance-bar-bg"><div id="p1-balance" class="balance-bar-fill"></div></div>
+      </div>
+      <div class="score-board">
+        <div id="round-info">RAUND 1</div>
+        <div id="score-text">0 - 0</div>
+      </div>
+      <div class="player-hud red">
+        <div class="player-name">KIRMIZI SAVAŞÇI (P2)</div>
+        <div class="balance-bar-bg"><div id="p2-balance" class="balance-bar-fill"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="announcer">3</div>
+
+  <!-- Ana Menü -->
+  <div id="main-menu" class="menu-screen">
+    <h1 class="menu-title">SWORD DUEL 2.5D</h1>
+    <button class="btn" onclick="UI.startGame()">OYNA</button>
+    <button class="btn" onclick="UI.showSettings()">KONTROLLER & TELEFON</button>
+    <p style="color:#cbd5e1;text-align:center;max-width:650px;padding:0 18px">Klavye, iki gamepad, telefon hareket kontrolü ve desteklenen masaüstü sürümünde iki bağımsız mouse.</p>
+  </div>
+
+  <div id="settings-menu" class="menu-screen hidden">
+    <h2 style="color:white;margin:8px">KONTROL MERKEZİ</h2>
+    <div class="settings-grid">
+      <div class="setting-card"><h3>Klavye</h3><p>Oyuncu 1: W saldırı · S savunma · A/D hareket</p><p>Oyuncu 2: ↑ saldırı · ↓ savunma · ←/→ hareket</p></div>
+      <div class="setting-card"><h3>Gamepad</h3><p>İlk bağlanan kumanda P1, ikinci kumanda P2.</p><p>Sol analog: hareket · Sağ analog: kılıç · RT: saldırı · LT: savunma</p><p id="gamepad-status">Gamepad aranıyor...</p></div>
+      <div class="setting-card"><h3>Çift mouse (Electron)</h3><p id="p1-device-status">Mouse 1 bekleniyor</p><button class="btn small-btn" onclick="InputManager.assignNextMouse(1)">P1 MOUSE TANIMLA</button><p id="p2-device-status">Mouse 2 bekleniyor</p><button class="btn small-btn" onclick="InputManager.assignNextMouse(2)">P2 MOUSE TANIMLA</button></div>
+      <div class="setting-card"><h3>Telefonu kumanda yap</h3><p>Render sunucusu üzerinden telefon bağla. Telefonda jiroskopla kılıç savur, ekrandan hareket ve savunma yap.</p><button class="btn small-btn" onclick="InputManager.createPhoneRoom()">TELEFON ODASI OLUŞTUR</button><p>Oda kodu: <strong id="phone-room-code">------</strong></p><div id="phone-qr"></div><a id="phone-controller-link" style="color:#93c5fd;word-break:break-all" target="_blank"></a><p id="phone-status">0 telefon bağlı</p></div>
+    </div>
+    <button class="btn" onclick="UI.hideSettings()">GERİ</button>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.8.1/dist/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./src/audio.js"></script>
+  <script src="./src/input.js"></script>
+  <script src="./src/player.js"></script>
+  <script src="./src/combat.js"></script>
+  <script src="./src/physics.js"></script>
+  <script src="./src/collision.js"></script>
+  <script src="./src/ui.js"></script>
+  <script src="./src/game.js"></script>
+</body>
+</html>
